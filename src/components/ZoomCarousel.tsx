@@ -16,18 +16,20 @@ interface ZoomCarouselProps {
 
 export default function ZoomCarousel({ images }: ZoomCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Monitor prefers-reduced-motion media query
+  // Monitor prefers-reduced-motion media query and viewport width on mount
   useEffect(() => {
+    setMounted(true);
+    
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     setPrefersReducedMotion(mediaQuery.matches);
     const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
     mediaQuery.addEventListener("change", handler);
 
-    // Monitor screen width for mobile check
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -47,8 +49,8 @@ export default function ZoomCarousel({ images }: ZoomCarouselProps) {
   const stepProgressVal = useMotionValue(0);
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    // If user prefers reduced motion or is on mobile, bypass heavy scroll calculations
-    if (prefersReducedMotion || isMobile) return;
+    // If not mounted, user prefers reduced motion, or is on mobile, bypass calculations
+    if (!mounted || prefersReducedMotion || isMobile) return;
 
     const rawStep = latest * totalSteps;
     const currentStep = Math.min(Math.floor(rawStep), totalSteps - 1);
@@ -63,10 +65,25 @@ export default function ZoomCarousel({ images }: ZoomCarouselProps) {
 
   if (!images || images.length === 0) return null;
 
-  // Fallback View: Swipeable Carousel for Mobile, or Grid for Reduced Motion
+  // Hydration Preloader View (server and initial client match)
+  if (!mounted) {
+    return (
+      <div
+        ref={containerRef}
+        className="min-h-screen bg-neutral-950 w-full flex items-center justify-center text-neutral-500 font-sans text-xs uppercase tracking-widest"
+      >
+        Loading Showcase...
+      </div>
+    );
+  }
+
+  // Fallback View: Swipeable Carousel for Mobile (with ref bound safely)
   if (isMobile) {
     return (
-      <div className="py-12 bg-neutral-950 border-t border-neutral-900">
+      <div
+        ref={containerRef}
+        className="py-12 bg-neutral-950 border-t border-neutral-900 w-full"
+      >
         <div className="px-6 mb-6">
           <span className="text-[10px] uppercase tracking-[0.2em] text-gold-400 font-bold block mb-1">
             Swipe Gallery
@@ -100,9 +117,13 @@ export default function ZoomCarousel({ images }: ZoomCarouselProps) {
     );
   }
 
+  // Fallback View: Static Grid for prefers-reduced-motion (with ref bound safely)
   if (prefersReducedMotion) {
     return (
-      <div className="py-16 max-w-7xl mx-auto px-6 bg-neutral-950 border-t border-neutral-900">
+      <div
+        ref={containerRef}
+        className="py-16 max-w-7xl mx-auto px-6 bg-neutral-950 border-t border-neutral-900 w-full"
+      >
         <div className="mb-10 text-center">
           <span className="text-xs uppercase tracking-[0.3em] text-gold-400 font-semibold mb-2 block">
             Resort Showcase
